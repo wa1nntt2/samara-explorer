@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgis/postgis:15-3.3
+    container_name: samara_postgres
+    environment:
+      POSTGRES_USER: explorer
+      POSTGRES_PASSWORD: secretpassword123
+      POSTGRES_DB: samara_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - samara_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U explorer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  samara_network:
+    driver: bridge
+
+volumes:
+  postgres_data:

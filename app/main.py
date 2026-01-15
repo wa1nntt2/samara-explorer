@@ -1,0 +1,140 @@
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import create_engine, Column, Integer, String, Float, Text, DateTime, func
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from pydantic import BaseModel
+from datetime import datetime
+import os
+import shutil
+import uuid
+from typing import Optional, List
+
+# Настройки
+DB_URL = "postgresql://explorer:secretpassword123@localhost:5432/samara_db"
+UPLOAD_DIR = "app/static/uploads"
+
+# Создаем папку для загрузок
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# База данных
+engine = create_engine(DB_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# Модель базы данных
+class PlaceDB(Base):
+    __tablename__ = "places"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    lat = Column(Float, nullable=False)
+    lon = Column(Float, nullable=False)
+    photo_path = Column(String(500))
+    user_id = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+# Создаем таблицы
+Base.metadata.create_all(bind=engine)
+
+# Pydantic схемы
+class PlaceCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    lat: float
+    lon: float
+
+class PlaceResponse(PlaceCreate):
+    id: int
+    photo_url: Optional[str] = None
+    user_id: int
+    created_at: datetime
+
+# FastAPI приложение
+app = FastAPI(title="Samara Explorer API", version="0.1.0")
+app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
+
+def save_upload_file(upload_file: UploadFile) -> str:
+    """Сохраняет файл и возвращает имя файла"""
+    file_ext = os.path.splitext(upload_file.filename)[1]
+    filename = f"{uuid.uuid4()}{file_ext}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(upload_file.file, buffer)
+    
+    return filename
+
+@app.post("/places/", response_model=PlaceResponse)
+async def create_place(
+    title: str = Form(...),
+    description: str = Form(None),
+    lat: float = Form(...),
+    lon: float = Form(...),
+    photo: UploadFile = File(...)
+):
+    """Создание нового места"""
+    
+    if not photo.content_type.startswith('image/'):
+        raise HTTPException(400, "Файл должен быть изображением")
+    
+    db = SessionLocal()
+    try:
+        photo_filename = save_upload_file(photo)
+        
+        db_place = PlaceDB(
+            title=title,
+            description=description,
+            lat=lat,
+            lon=lon,
+            photo_path=photo_filename,
+            user_id=1
+        )
+        
+        db.add(db_place)
+        db.commit()
+        db.refresh(db_place)
+        
+        return {
+            "id": db_place.id,
+            "title": db_place.title,
+            "description": db_place.description,
+            "lat": db_place.lat,
+            "lon": db_place.lon,
+            "photo_url": f"/static/{photo_filename}",
+            "user_id": db_place.user_id,
+            "created_at": db_place.created_at
+        }
+    finally:
+        db.close()
+
+@app.get("/places/", response_model=List[PlaceResponse])
+def get_places():
+    """Получение всех мест"""
+    db = SessionLocal()
+    try:
+        places = db.query(PlaceDB).order_by(PlaceDB.created_at.desc()).all()
+        result = []
+        for place in places:
+            result.append({
+                "id": place.id,
+                "title": place.title,
+                "description": place.description,
+                "lat": place.lat,
+                "lon": place.lon,
+                "photo_url": f"/static/{place.photo_path}" if place.photo_path else None,
+                "user_id": place.user_id,
+                "created_at": place.created_at
+            })
+        return result
+    finally:
+        db.close()
+
+@app.get("/")
+async def root():
+    return {"message": "Добро пожаловать в Samara Explorer API!", "docs": "/docs"}
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "database": "connected"}
