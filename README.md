@@ -15,5 +15,5 @@ API для создания и просмотра интересных мест 
 
 1. Клонировать репозиторий:
 ```bash
-git clone https://github.com/ваш-username/samara-explorer.git
+git clone https://github.com/wa1nntt2/samara-explorer.git
 cd samara-explorer/backend

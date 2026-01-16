@@ -1,6 +1,6 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import create_engine, Column, Integer, String, Float, Text, DateTime, func, and_
+from sqlalchemy import create_engine, Column, Integer, String, Float, Text, DateTime, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from pydantic import BaseModel
@@ -110,60 +110,11 @@ async def create_place(
         db.close()
 
 @app.get("/places/", response_model=List[PlaceResponse])
-def get_places(skip: int = 0, limit: int = 100):
+def get_places():
     """Получение всех мест"""
     db = SessionLocal()
     try:
-        places = db.query(PlaceDB).order_by(PlaceDB.created_at.desc()).offset(skip).limit(limit).all()
-        result = []
-        for place in places:
-            result.append({
-                "id": place.id,
-                "title": place.title,
-                "description": place.description,
-                "lat": place.lat,
-                "lon": place.lon,
-                "photo_url": f"/static/{place.photo_path}" if place.photo_path else None,
-                "user_id": place.user_id,
-                "created_at": place.created_at
-            })
-        return result
-    finally:
-        db.close()
-
-@app.get("/places/bbox/", response_model=List[PlaceResponse])
-def get_places_by_bbox(
-    min_lat: float = Query(..., description="Минимальная широта (южная граница)"),
-    max_lat: float = Query(..., description="Максимальная широта (северная граница)"),
-    min_lon: float = Query(..., description="Минимальная долгота (западная граница)"),
-    max_lon: float = Query(..., description="Максимальная долгота (восточная граница)")
-):
-    """
-    Получение мест в заданной прямоугольной области.
-    Используется для загрузки только видимых на карте меток.
-    
-    Пример для Самары:
-    - min_lat=53.0, max_lat=53.5
-    - min_lon=49.5, max_lon=50.5
-    """
-    # Проверяем валидность координат
-    if not (-90 <= min_lat <= 90 and -90 <= max_lat <= 90):
-        raise HTTPException(400, "Широта должна быть в диапазоне [-90, 90]")
-    if not (-180 <= min_lon <= 180 and -180 <= max_lon <= 180):
-        raise HTTPException(400, "Долгота должна быть в диапазоне [-180, 180]")
-    
-    db = SessionLocal()
-    try:
-        # Ищем места в bounding box
-        places = db.query(PlaceDB).filter(
-            and_(
-                PlaceDB.lat >= min_lat,
-                PlaceDB.lat <= max_lat,
-                PlaceDB.lon >= min_lon,
-                PlaceDB.lon <= max_lon
-            )
-        ).all()
-        
+        places = db.query(PlaceDB).order_by(PlaceDB.created_at.desc()).all()
         result = []
         for place in places:
             result.append({
