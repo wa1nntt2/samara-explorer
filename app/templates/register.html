@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Регистрация</title>
+</head>
+<body>
+    <h1>Регистрация</h1>
+    <form id="registerForm">
+        <input type="text" name="username" placeholder="Имя пользователя" required><br>
+        <input type="password" name="password" placeholder="Пароль" required><br>
+        <button type="submit">Зарегистрироваться</button>
+    </form>
+    <p>Уже есть аккаунт? <a href="/login">Войдите</a></p>
+    <p><a href="/">На главную</a></p>
+    <div id="message"></div>
+    
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Сохраняем токен в cookie
+                    document.cookie = `session_token=${result.session_token}; path=/; max-age=86400`;
+                    alert('Регистрация успешна!');
+                    window.location.href = '/';
+                } else {
+                    document.getElementById('message').textContent = result.detail || 'Ошибка регистрации';
+                }
+            } catch (error) {
+                document.getElementById('message').textContent = 'Ошибка подключения';
+            }
+        });
+    </script>
+</body>
+</html>

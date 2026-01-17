@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Вход</title>
+</head>
+<body>
+    <h1>Вход</h1>
+    <form id="loginForm">
+        <input type="text" name="username" placeholder="Имя пользователя" required><br>
+        <input type="password" name="password" placeholder="Пароль" required><br>
+        <button type="submit">Войти</button>
+    </form>
+    <p>Нет аккаунта? <a href="/register">Зарегистрируйтесь</a></p>
+    <p><a href="/">На главную</a></p>
+    <div id="message"></div>
+    
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Сохраняем токен в cookie
+                    document.cookie = `session_token=${result.session_token}; path=/; max-age=86400`;
+                    alert('Успешный вход!');
+                    window.location.href = '/';
+                } else {
+                    document.getElementById('message').textContent = result.detail || 'Ошибка входа';
+                }
+            } catch (error) {
+                document.getElementById('message').textContent = 'Ошибка подключения';
+            }
+        });
+    </script>
+</body>
+</html>
